@@ -1,0 +1,15 @@
+<div class="relative[100%] h-[100%]">
+
+  <div #container class="absolute w-[100%] h-[100%]">
+  </div>
+  <div class="absolute w-[100%] mt-auto z-40 ">
+    <div class="mx-auto w-[70%]  rounded flex flex-row justify-center items-center p-2 space-x-2">
+      <button (click)="rotateFront()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate front</button>
+      <button (click)="rotateBack()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate back</button>
+      <button (click)="rotateLeft()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate left</button>
+      <button (click)="rotateRight()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate right</button>
+      <button (click)="rotateTop()"    class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate top</button>
+      <button (click)="rotateBottom()" class="cursor-pointer rounded-lg bg-gray-500 p-2">rotate bottom</button>
+    </div>
+  </div>
+</div>
