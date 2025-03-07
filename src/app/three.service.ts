@@ -36,6 +36,16 @@ export class ThreeService {
 
   initializeScene(container: ElementRef): void {
     const width = container.nativeElement.clientWidth;
+    // Add resize event listener to make the scene responsive
+    window.addEventListener('resize', () => {
+      const newWidth = container.nativeElement.clientWidth;
+      const newHeight = container.nativeElement.clientHeight;
+      
+      this.camera.aspect = newWidth / newHeight;
+      this.camera.updateProjectionMatrix();
+      
+      this.renderer.setSize(newWidth, newHeight);
+    });
     const height = container.nativeElement.clientHeight;
 
     // Scene
@@ -252,14 +262,14 @@ export class ThreeService {
       'G':frontC,
 
       // Back face
-      'Boy':backTopLeftC,
-      'Byr':backTopRightC,
-      'Bwo':backBottomLeftC,
-      'Brw':backBottomRightC,
+      'Boy':backTopRightC,
+      'Byr':backTopLeftC,
+      'Bwo':backBottomRightC,
+      'Brw':backBottomLeftC,
       'By':topFarE,
-      'Br':backRightE,
+      'Br':backLeftE,
       'Bw':bottomFarE,
-      'Bo':backLeftE,
+      'Bo':backRightE,
       'B':backC,
 
       // Top face
@@ -343,7 +353,7 @@ export class ThreeService {
       targetAngle = startAngle + angleRad;
     }
 
-    const duration = 500; // milliseconds
+    const duration = 100; // milliseconds
     const startTime = Date.now();
 
     const animateRotation = () => {
@@ -372,6 +382,29 @@ export class ThreeService {
     animateRotation();
   }
   private bindToPivot(face: string[][], pivot: THREE.Object3D) {
+    // Clear the pivot first - remove all existing children
+    while (pivot.children.length > 0) {
+      const child = pivot.children[0];
+      if (child instanceof THREE.Mesh) {
+        // Store world position and quaternion before removal
+        const worldPos = new THREE.Vector3();
+        child.getWorldPosition(worldPos);
+
+        const worldQuat = new THREE.Quaternion();
+        child.getWorldQuaternion(worldQuat);
+
+        // Add to scene temporarily to preserve position
+        pivot.remove(child);
+        this.scene.add(child);
+
+        // Restore world position and rotation
+        child.position.copy(worldPos);
+        child.quaternion.copy(worldQuat);
+      } else {
+        pivot.remove(child);
+      }
+    }
+
     // Get all meshes that should be in this pivot according to the face data
     const meshesToMove = new Set<THREE.Mesh>();
     face.forEach(row => row.forEach(cubeId => {
@@ -430,7 +463,11 @@ export class ThreeService {
   public rotateFront(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateFront(3);
+    let times = 1;
+    if(angle < 0) {
+      times = 3;
+    }
+    this.Cube.rotateFront(times);
     console.log('front:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.front,this.pivots.front)
     this.animate(this.pivots.front,'front',angle);
@@ -438,7 +475,11 @@ export class ThreeService {
   public rotateBack(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateBack(3);
+    let times = 1;
+    if(angle < 0){
+      times = 3;
+    }
+    this.Cube.rotateBack(times);
     console.log('back:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.back,this.pivots.back)
     this.animate(this.pivots.back,'back',angle);
@@ -446,7 +487,11 @@ export class ThreeService {
   public rotateTop(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateTop(3);
+    let times = 3;
+    if(angle < 0) {
+      times = 1;
+    }
+    this.Cube.rotateTop(times);
     console.log('top:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.top,this.pivots.top)
     this.animate(this.pivots.top,'top',angle);
@@ -454,7 +499,11 @@ export class ThreeService {
   public rotateBottom(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateBottom(3);
+    let times = 3;
+    if(angle < 0) {
+      times = 1;
+    }
+    this.Cube.rotateBottom(times);
     console.log('bottom:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.bottom,this.pivots.bottom)
     this.animate(this.pivots.bottom,'bottom',angle);
@@ -462,7 +511,11 @@ export class ThreeService {
   public rotateRight(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateRight(3);
+    let times = 1;
+    if(angle < 0) {
+      times = 3;
+    }
+    this.Cube.rotateRight(times);
     console.log('Right:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.right,this.pivots.right)
     this.animate(this.pivots.right,'right',angle);
@@ -470,7 +523,11 @@ export class ThreeService {
   public rotateLeft(angle:number) {
     if(this.isAnimating) return;
     this.isAnimating = true;
-    this.Cube.rotateLeft(3);
+    let times = 1;
+    if(angle < 0) {
+      times = 3;
+    }
+    this.Cube.rotateLeft(times);
     console.log('Left:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.left,this.pivots.left)
     this.animate(this.pivots.left,'left',angle);

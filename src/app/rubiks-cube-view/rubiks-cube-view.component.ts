@@ -17,22 +17,40 @@ export class RubiksCubeViewComponent implements OnInit {
   ngOnInit(): void {
     this.threeService.initializeScene(this.container);
   }
-  rotateFront(){
+  Fi(){
     this.threeService.rotateFront(90);
   }
-  rotateBack(){
+  F(){
+    this.threeService.rotateFront(-90);
+  }
+  B(){
     this.threeService.rotateBack(90);
   }
-  rotateLeft(){
+  Bi(){
+    this.threeService.rotateBack(-90);
+  }
+  L(){
     this.threeService.rotateLeft(90);
   }
-  rotateRight(){
+  Li(){
+    this.threeService.rotateLeft(-90);
+  }
+  Ri(){
     this.threeService.rotateRight(90);
   }
-  rotateTop(){
+  R(){
+    this.threeService.rotateRight(-90);
+  }
+  Ui(){
     this.threeService.rotateTop(90);
   }
-  rotateBottom(){
+  U(){
+    this.threeService.rotateTop(-90);
+  }
+  D(){
     this.threeService.rotateBottom(90);
+  }
+  Di(){
+    this.threeService.rotateBottom(-90);
   }
 }
