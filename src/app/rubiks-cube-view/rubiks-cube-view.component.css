@@ -1,0 +1,88 @@
+
+.cube-container {
+  position: relative;
+  width: 100%;
+  height: 100vh; /* Full viewport height */
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.cube-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* Lowest z-index to be behind everything */
+}
+
+.controls-container {
+  /* position: absolute; */
+  position: relative;
+  bottom: 0; /* Position at the bottom */
+  left: 0;
+  width: 100%;
+  z-index: 40; /* Higher z-index to appear on top */
+  /* background-color: rgba(255, 255, 255, 0.7); Semi-transparent background */
+}
+
+.button-row {
+  margin: 0 auto;
+  width: 70%;
+  border-radius: 0.25rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0.5rem;
+  gap: 0.5rem;
+}
+
+.action-row {
+  margin: 0 auto;
+  width: 50%;
+  border-radius: 0.25rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 0.5rem;
+  gap: 0.5rem;
+}
+
+.control-button {
+  cursor: pointer;
+  border-radius: 0.5rem;
+  background-color: #6b7280;
+  color: white;
+  padding: 0.5rem;
+  border: none;
+}
+
+.action-button {
+  margin: 0 auto;
+  width: 70%;
+  border-radius: 0.5rem;
+  background-color: #6b7280;
+  color: white;
+  padding: 0.5rem;
+  cursor: pointer;
+  border: none;
+}
+
+.input-row {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.move-input {
+  margin: 0 auto;
+  width: 50%;
+  border-radius: 0.5rem;
+  background-color: white;
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+}

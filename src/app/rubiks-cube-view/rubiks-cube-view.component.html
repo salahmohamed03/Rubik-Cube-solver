@@ -1,31 +1,29 @@
-<div class="relative[100%] h-[100%]">
-
-  <div #container class="absolute w-[100%] h-[100%]">
-  </div>
-  <div class="absolute w-[100%] mt-auto z-40 ">
-    <div class="mx-auto w-[70%]  rounded flex flex-row justify-center items-center p-2 space-x-2">
-      <button (click)="F()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">front</button>
-      <button (click)="B()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">back</button>
-      <button (click)="L()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">left</button>
-      <button (click)="R()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">right</button>
-      <button (click)="U()"    class="cursor-pointer rounded-lg bg-gray-500 p-2">top</button>
-      <button (click)="D()" class="cursor-pointer rounded-lg bg-gray-500 p-2">bottom</button>
+<div class="cube-container">
+  <div #container class="cube-viewport" ></div>
+  <div class="controls-container">
+    <div class="button-row">
+      <button (click)="F()" class="control-button">front</button>
+      <button (click)="B()" class="control-button">back</button>
+      <button (click)="L()" class="control-button">left</button>
+      <button (click)="R()" class="control-button">right</button>
+      <button (click)="U()" class="control-button">top</button>
+      <button (click)="D()" class="control-button">bottom</button>
     </div>
-    <div class="mx-auto w-[70%]  rounded flex flex-row justify-center items-center p-2 space-x-2">
-      <button (click)="Fi()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">front i</button>
-      <button (click)="Bi()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">back i</button>
-      <button (click)="Li()"   class="cursor-pointer rounded-lg bg-gray-500 p-2">left i</button>
-      <button (click)="Ri()"  class="cursor-pointer rounded-lg bg-gray-500 p-2">right i</button>
-      <button (click)="Ui()"    class="cursor-pointer rounded-lg bg-gray-500 p-2">top i</button>
-      <button (click)="Di()" class="cursor-pointer rounded-lg bg-gray-500 p-2">bottom i</button>
+    <div class="button-row">
+      <button (click)="Fi()" class="control-button">front i</button>
+      <button (click)="Bi()" class="control-button">back i</button>
+      <button (click)="Li()" class="control-button">left i</button>
+      <button (click)="Ri()" class="control-button">right i</button>
+      <button (click)="Ui()" class="control-button">top i</button>
+      <button (click)="Di()" class="control-button">bottom i</button>
     </div>
-    <div class="mx-auto w-[50%]  rounded flex flex-row justify-center items-center p-2 space-x-2">
-      <button (click)="performMove()" class="mx-auto w-[70%] rounded-lg bg-gray-500 p-2">move</button>
-      <button (click)="solve()" class="mx-auto w-[70%] rounded-lg bg-gray-500 p-2">solve</button>
-      <button (click)="scrumble()" class="mx-auto w-[70%] rounded-lg bg-gray-500 p-2 pointer">scrumble</button>
+    <div class="action-row">
+      <button (click)="performMove()" class="action-button">move</button>
+      <button (click)="solve()" class="action-button">solve</button>
+      <button (click)="scrumble()" class="action-button">scrumble</button>
     </div>
-    <div class="w-[100%] flex flex-row justify-center items-center">
-      <input type="text" maxlength="120" [(ngModel)]="move" class="mx-auto w-[50%] rounded-lg bg-white p-2 border" placeholder="RUru ...">
+    <div class="input-row">
+      <input type="text" maxlength="120" [(ngModel)]="move" class="move-input" placeholder="RUru ...">
     </div>
   </div>
 </div>
