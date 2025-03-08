@@ -1,17 +1,18 @@
 import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ThreeService } from '../three.service';
+import { FormsModule } from '@angular/forms'
 
 @Component({
   selector: 'app-rubiks-cube-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './rubiks-cube-view.component.html',
   styleUrl: './rubiks-cube-view.component.css'
 })
 export class RubiksCubeViewComponent implements OnInit {
   @ViewChild('container', { static: true }) container!: ElementRef;
-
+  move: string = '';
   constructor(private threeService: ThreeService) { }
 
   ngOnInit(): void {
@@ -52,5 +53,15 @@ export class RubiksCubeViewComponent implements OnInit {
   }
   Di(){
     this.threeService.rotateBottom(-90);
+  }
+  performMove(){
+    this.threeService.performMove(this.move);
+  }
+  solve(){
+    this.move = this.threeService.solveCube();
+  }
+  scrumble(){
+    const scrumble = this.threeService.scrumbleCube();
+    console.log(scrumble);
   }
 }

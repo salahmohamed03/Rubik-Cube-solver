@@ -40,10 +40,10 @@ export class ThreeService {
     window.addEventListener('resize', () => {
       const newWidth = container.nativeElement.clientWidth;
       const newHeight = container.nativeElement.clientHeight;
-      
+
       this.camera.aspect = newWidth / newHeight;
       this.camera.updateProjectionMatrix();
-      
+
       this.renderer.setSize(newWidth, newHeight);
     });
     const height = container.nativeElement.clientHeight;
@@ -381,6 +381,20 @@ export class ThreeService {
 
     animateRotation();
   }
+  moveWithoutAnimation(pivot: THREE.Object3D, face: keyof typeof this.lookupDir = 'front', angle: number = 90): void {
+    this.isAnimating = false;
+    const dir = this.lookupDir[face];
+    const angleRad = THREE.MathUtils.degToRad(angle);
+    // Set the appropriate rotation axis based on direction
+    if (dir === 'x') {
+      pivot.rotation.x += angleRad;
+    } else if (dir === 'y') {
+      pivot.rotation.y += angleRad;
+    } else { // z axis is default
+      pivot.rotation.z += angleRad;
+    }
+  }
+
   private bindToPivot(face: string[][], pivot: THREE.Object3D) {
     // Clear the pivot first - remove all existing children
     while (pivot.children.length > 0) {
@@ -460,7 +474,7 @@ export class ThreeService {
       }
     });
   }
-  public rotateFront(angle:number) {
+  public rotateFront(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 1;
@@ -468,11 +482,15 @@ export class ThreeService {
       times = 3;
     }
     this.Cube.rotateFront(times);
-    console.log('front:',this.Cube.cubeState)
+    // console.log('front:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.front,this.pivots.front)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.front,'front',angle);
+      return;
+    }
     this.animate(this.pivots.front,'front',angle);
   }
-  public rotateBack(angle:number) {
+  public rotateBack(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 1;
@@ -480,11 +498,15 @@ export class ThreeService {
       times = 3;
     }
     this.Cube.rotateBack(times);
-    console.log('back:',this.Cube.cubeState)
+    // console.log('back:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.back,this.pivots.back)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.back,'back',angle);
+      return;
+    }
     this.animate(this.pivots.back,'back',angle);
   }
-  public rotateTop(angle:number) {
+  public rotateTop(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 3;
@@ -492,11 +514,15 @@ export class ThreeService {
       times = 1;
     }
     this.Cube.rotateTop(times);
-    console.log('top:',this.Cube.cubeState)
+    // console.log('top:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.top,this.pivots.top)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.top,'top',angle);
+      return;
+    }
     this.animate(this.pivots.top,'top',angle);
   }
-  public rotateBottom(angle:number) {
+  public rotateBottom(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 3;
@@ -504,11 +530,15 @@ export class ThreeService {
       times = 1;
     }
     this.Cube.rotateBottom(times);
-    console.log('bottom:',this.Cube.cubeState)
+    // console.log('bottom:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.bottom,this.pivots.bottom)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.bottom,'bottom',angle);
+      return;
+    }
     this.animate(this.pivots.bottom,'bottom',angle);
   }
-  public rotateRight(angle:number) {
+  public rotateRight(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 1;
@@ -516,11 +546,15 @@ export class ThreeService {
       times = 3;
     }
     this.Cube.rotateRight(times);
-    console.log('Right:',this.Cube.cubeState)
+    // console.log('Right:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.right,this.pivots.right)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.right,'right',angle);
+      return
+    }
     this.animate(this.pivots.right,'right',angle);
   }
-  public rotateLeft(angle:number) {
+  public rotateLeft(angle:number,animate:boolean = true) {
     if(this.isAnimating) return;
     this.isAnimating = true;
     let times = 1;
@@ -528,12 +562,85 @@ export class ThreeService {
       times = 3;
     }
     this.Cube.rotateLeft(times);
-    console.log('Left:',this.Cube.cubeState)
+    // console.log('Left:',this.Cube.cubeState)
     this.bindToPivot(this.Cube.cubeState.left,this.pivots.left)
+    if(!animate){
+      this.moveWithoutAnimation(this.pivots.left,'left',angle);
+      return;
+    }
     this.animate(this.pivots.left,'left',angle);
   }
+  async performMove(move: string, animate: boolean = true) {
+    for (let i = 0; i < move.length; i++) {
+      // Perform the move
+      switch (move[i]) {
+        case 'U':
+          this.rotateTop(-90, animate);
+          break;
+        case 'u':
+          this.rotateTop(90, animate);
+          break;
+        case 'F':
+          this.rotateFront(-90, animate);
+          break;
+        case 'f':
+          this.rotateFront(90, animate);
+          break;
+        case 'R':
+          this.rotateRight(-90, animate);
+          break;
+        case 'r':
+          this.rotateRight(90, animate);
+          break;
+        case 'B':
+          this.rotateBack(90, animate);
+          break;
+        case 'b':
+          this.rotateBack(-90, animate);
+          break;
+        case 'L':
+          this.rotateLeft(90, animate);
+          break;
+        case 'l':
+          this.rotateLeft(-90, animate);
+          break;
+        case 'D':
+          this.rotateBottom(90, animate);
+          break;
+        case 'd':
+          this.rotateBottom(-90, animate);
+          break;
+      }
 
+      // Wait for 1 second before proceeding to the next move
+      // But only if there are more moves to perform and animation is enabled
+      if (i < move.length - 1 && animate) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
+      // Also wait for current animation to complete
+      if (animate && this.isAnimating) {
+        await new Promise(resolve => {
+          const checkAnimation = () => {
+            if (!this.isAnimating) {
+              resolve(true);
+            } else {
+              setTimeout(checkAnimation, 50);
+            }
+          };
+          checkAnimation();
+        });
+      }
+    }
+  }
 
+  solveCube(){
+   return this.Cube.solve();
+  }
 
+  scrumbleCube(){
+    const scrumble =  this.Cube.scramble();
+    this.performMove(scrumble);
+    return scrumble;
+  }
 }
