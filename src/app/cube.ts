@@ -802,6 +802,22 @@ export class CubeService {
     s += this.PLL();
     return s;
   }
+  solveWithPhases(): { phase: string; moves: string }[] {
+    const phases: { phase: string; moves: string }[] = [];
+    this.cubeStateCopy = JSON.parse(JSON.stringify(this.cubeState));
+    this.updateCubeState(this.cubeStateCopy);
+    const cross = this.solve_white_cross();
+    if (cross) phases.push({ phase: 'White Cross', moves: cross });
+    const corners = this.solve_white_corners();
+    if (corners) phases.push({ phase: 'First Layer Corners', moves: corners });
+    const middle = this.solve_middle_layer();
+    if (middle) phases.push({ phase: 'Second Layer (F2L)', moves: middle });
+    const oll = this.OLL();
+    if (oll) phases.push({ phase: 'Top Yellow Face (OLL)', moves: oll });
+    const pll = this.PLL();
+    if (pll) phases.push({ phase: 'Permute Last Layer (PLL)', moves: pll });
+    return phases;
+  }
   reverseMoves(moves:string){
     let reversed = '';
     for (let i = moves.length - 1; i >= 0; i--) {

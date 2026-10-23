@@ -9,7 +9,6 @@ export class ThreeService {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
-  // private cubes: THREE.Mesh[] = [];
   private lookupDir: { [key: string]: string } = {
     'front':'z',
     'back':'z',
@@ -32,6 +31,13 @@ export class ThreeService {
   private mouse = new THREE.Vector2();
   private bindCubes!:{[key:string]:THREE.Mesh}
 
+  // Public callbacks for face interaction
+  public onFaceClick: ((face: string, inverse: boolean) => void) | null = null;
+  public onFaceHover: ((face: string) => void) | null = null;
+
+  // All cubies for raycasting
+  private allCubies: THREE.Mesh[] = [];
+
   constructor() {}
 
   initializeScene(container: ElementRef): void {
@@ -48,58 +54,75 @@ export class ThreeService {
     });
     const height = container.nativeElement.clientHeight;
 
-    // Scene
+    // Scene — dark background to match glassmorphism theme
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xcccccc);
+    this.scene.background = new THREE.Color(0x0a0e1a);
 
-    // Camera
+    // Camera — positioned in 3D isometric perspective
     this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    this.camera.position.z = 10;
+    this.camera.position.set(5.5, 4.5, 6.5);
+    this.camera.lookAt(0, 0, 0);
 
-    // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Renderer with enhanced settings for dark theme
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
     container.nativeElement.appendChild(this.renderer.domElement);
 
     // Orbit Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
+    this.controls.dampingFactor = 0.08;
     this.controls.rotateSpeed = 0.5;
+    this.controls.enableZoom = true;
+    this.controls.minDistance = 5;
+    this.controls.maxDistance = 20;
 
-    // Lighting
-    // Brighter ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // Lighting — enhanced for dark theme with vivid cube colors
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
     this.scene.add(ambientLight);
 
-    // Add hemisphere light for better overall illumination
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x404040, 1);
+    const hemisphereLight = new THREE.HemisphereLight(0xeeeeff, 0x222244, 0.8);
     this.scene.add(hemisphereLight);
 
-    // Directional lights for better shadows and highlights
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(5, 5, 5);
-    this.scene.add(directionalLight);
+    // Key light (main directional)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    keyLight.position.set(5, 8, 5);
+    this.scene.add(keyLight);
 
-    // Reduce number of point lights but increase their intensity
+    // Fill light
+    const fillLight = new THREE.DirectionalLight(0x8888ff, 0.4);
+    fillLight.position.set(-5, 2, -5);
+    this.scene.add(fillLight);
+
+    // Rim lights for edge glow
     const frontLight = new THREE.PointLight(0xffffff, 3, 50);
-    frontLight.position.set(0, 0, 5);
+    frontLight.position.set(0, 0, 6);
     this.scene.add(frontLight);
 
-    const backLight = new THREE.PointLight(0xffffff, 3, 50);
-    backLight.position.set(0, 0, -5);
+    const backLight = new THREE.PointLight(0xffffff, 2, 50);
+    backLight.position.set(0, 0, -6);
     this.scene.add(backLight);
+
+    const topLight = new THREE.PointLight(0xffffff, 2, 50);
+    topLight.position.set(0, 6, 0);
+    this.scene.add(topLight);
 
     // Create Rubik's Cube
     this.createRubiksCube();
 
-    // Event Listener for Clicks
+    // Event Listener for face clicks (raycaster-based)
     this.renderer.domElement.addEventListener('click', (event) => this.onCubeClick(event));
+
+    // Event Listener for face hover
+    this.renderer.domElement.addEventListener('mousemove', (event) => this.onCubeHover(event));
 
     // Render loop
     const animate = () => {
       requestAnimationFrame(animate);
-      this.controls.update(); // Update OrbitControls
+      this.controls.update();
       this.renderer.render(this.scene, this.camera);
     };
     animate();
@@ -317,17 +340,86 @@ export class ThreeService {
       'O':rightC
     }
 
+    // Populate allCubies for raycasting (use Set to avoid duplicates)
+    const uniqueCubies = new Set<THREE.Mesh>(Object.values(this.bindCubes));
+    this.allCubies = Array.from(uniqueCubies);
+
   }
 
-  private isAnimating = false;
+  public isAnimating = false;
+  public animationDuration = 120;
+  public Cube = new CubeService();
+  public isOperating = false;
+  private currentSequenceId = 0;
+  private animFrameId: number | null = null;
 
+  /** Detect which face of the cube was clicked and trigger rotation */
   private onCubeClick(event: MouseEvent): void {
-    // this.rotateRight(90);
-    // setTimeout(() => {
-    //   this.rotateFront(90);
-    // }, 3000);
+    if (this.isAnimating) return;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.allCubies, false);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0];
+      const face = this.determineFace(hit);
+      if (face && this.onFaceClick) {
+        const inverse = event.shiftKey;
+        this.onFaceClick(face, inverse);
+      }
+    }
   }
-  private Cube = new CubeService();
+
+  /** Detect which face the mouse is hovering over */
+  private onCubeHover(event: MouseEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.allCubies, false);
+
+    if (intersects.length > 0) {
+      const face = this.determineFace(intersects[0]);
+      if (this.onFaceHover) {
+        this.onFaceHover(face || '');
+      }
+      this.renderer.domElement.style.cursor = face ? 'pointer' : 'grab';
+    } else {
+      if (this.onFaceHover) {
+        this.onFaceHover('');
+      }
+      this.renderer.domElement.style.cursor = 'grab';
+    }
+  }
+
+  /** Determine which face (front/back/left/right/top/bottom) a raycast hit belongs to */
+  private determineFace(hit: THREE.Intersection): string | null {
+    const normal = hit.face?.normal;
+    if (!normal) return null;
+
+    // Transform the face normal to world space
+    const worldNormal = normal.clone();
+    const obj = hit.object as THREE.Mesh;
+    worldNormal.transformDirection(obj.matrixWorld);
+
+    // Determine which axis-aligned direction is dominant
+    const absX = Math.abs(worldNormal.x);
+    const absY = Math.abs(worldNormal.y);
+    const absZ = Math.abs(worldNormal.z);
+
+    if (absX > absY && absX > absZ) {
+      return worldNormal.x > 0 ? 'right' : 'left';
+    } else if (absY > absX && absY > absZ) {
+      return worldNormal.y > 0 ? 'top' : 'bottom';
+    } else {
+      return worldNormal.z > 0 ? 'front' : 'back';
+    }
+  }
 
 
 
@@ -353,33 +445,38 @@ export class ThreeService {
       targetAngle = startAngle + angleRad;
     }
 
-    const duration = 100; // milliseconds
+    const duration = this.animationDuration; // milliseconds
     const startTime = Date.now();
+    const currentSeq = this.currentSequenceId;
 
     const animateRotation = () => {
+      if (currentSeq !== this.currentSequenceId) {
+        this.isAnimating = false;
+        this.animFrameId = null;
+        return;
+      }
+
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
       // Set the rotation property based on direction
       if (dir === 'x') {
-        // console.log('x')
         pivot.rotation.x = startAngle + (targetAngle - startAngle) * progress;
       } else if (dir === 'y') {
-        // console.log('y')
         pivot.rotation.y = startAngle + (targetAngle - startAngle) * progress;
       } else {
-        // console.log('z',dir)
         pivot.rotation.z = startAngle + (targetAngle - startAngle) * progress;
       }
 
       if (progress < 1) {
-        requestAnimationFrame(animateRotation);
+        this.animFrameId = requestAnimationFrame(animateRotation);
       } else {
         this.isAnimating = false;
+        this.animFrameId = null;
       }
     };
 
-    animateRotation();
+    this.animFrameId = requestAnimationFrame(animateRotation);
   }
   moveWithoutAnimation(pivot: THREE.Object3D, face: keyof typeof this.lookupDir = 'front', angle: number = 90): void {
     this.isAnimating = false;
@@ -570,77 +667,162 @@ export class ThreeService {
     }
     this.animate(this.pivots.left,'left',angle);
   }
-  async performMove(move: string, animate: boolean = true) {
+  /** Immediately abort any running moves, sequences, or animations */
+  abortCurrentOperations(): void {
+    this.currentSequenceId++;
+    if (this.animFrameId !== null) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+    this.isAnimating = false;
+    this.isOperating = false;
+  }
+
+  async performMove(move: string, animate: boolean = true): Promise<boolean> {
+    const seqId = ++this.currentSequenceId;
+    this.isOperating = true;
+
     for (let i = 0; i < move.length; i++) {
-      // Perform the move
-      switch (move[i]) {
-        case 'U':
-          this.rotateTop(-90, animate);
-          break;
-        case 'u':
-          this.rotateTop(90, animate);
-          break;
-        case 'F':
-          this.rotateFront(-90, animate);
-          break;
-        case 'f':
-          this.rotateFront(90, animate);
-          break;
-        case 'R':
-          this.rotateRight(-90, animate);
-          break;
-        case 'r':
-          this.rotateRight(90, animate);
-          break;
-        case 'B':
-          this.rotateBack(90, animate);
-          break;
-        case 'b':
-          this.rotateBack(-90, animate);
-          break;
-        case 'L':
-          this.rotateLeft(90, animate);
-          break;
-        case 'l':
-          this.rotateLeft(-90, animate);
-          break;
-        case 'D':
-          this.rotateBottom(90, animate);
-          break;
-        case 'd':
-          this.rotateBottom(-90, animate);
-          break;
+      if (seqId !== this.currentSequenceId) {
+        this.isOperating = false;
+        return false;
       }
 
-      // Wait for 1 second before proceeding to the next move
-      // But only if there are more moves to perform and animation is enabled
+      await this.executeSingleMove(move[i], animate);
+
+      if (seqId !== this.currentSequenceId) {
+        this.isOperating = false;
+        return false;
+      }
+
       if (i < move.length - 1 && animate) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      // Also wait for current animation to complete
-      if (animate && this.isAnimating) {
-        await new Promise(resolve => {
-          const checkAnimation = () => {
-            if (!this.isAnimating) {
-              resolve(true);
-            } else {
-              setTimeout(checkAnimation, 50);
-            }
-          };
-          checkAnimation();
-        });
+        const delay = Math.max(10, Math.floor(this.animationDuration * 0.3));
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
+
+    if (seqId === this.currentSequenceId) {
+      this.isOperating = false;
+    }
+    return true;
   }
 
   solveCube(){
    return this.Cube.solve();
   }
 
-  scrumbleCube(){
-    const scrumble =  this.Cube.scramble();
-    this.performMove(scrumble);
+  solveWithPhases(){
+    return this.Cube.solveWithPhases();
+  }
+
+  async scrumbleCube(): Promise<string> {
+    const scrumble = this.Cube.scramble();
+    await this.performMove(scrumble);
     return scrumble;
+  }
+
+  /** Execute a single move (e.g. 'F', 'f', 'R', 'r') and return Promise when done */
+  executeSingleMove(moveChar: string, animate: boolean = true): Promise<void> {
+    const seqId = this.currentSequenceId;
+    return new Promise((resolve) => {
+      if (seqId !== this.currentSequenceId) {
+        resolve();
+        return;
+      }
+
+      switch (moveChar) {
+        case 'U': this.rotateTop(-90, animate); break;
+        case 'u': this.rotateTop(90, animate); break;
+        case 'F': this.rotateFront(-90, animate); break;
+        case 'f': this.rotateFront(90, animate); break;
+        case 'R': this.rotateRight(-90, animate); break;
+        case 'r': this.rotateRight(90, animate); break;
+        case 'B': this.rotateBack(90, animate); break;
+        case 'b': this.rotateBack(-90, animate); break;
+        case 'L': this.rotateLeft(90, animate); break;
+        case 'l': this.rotateLeft(-90, animate); break;
+        case 'D': this.rotateBottom(90, animate); break;
+        case 'd': this.rotateBottom(-90, animate); break;
+      }
+
+      if (animate && this.animationDuration > 0) {
+        const check = () => {
+          if (seqId !== this.currentSequenceId || !this.isAnimating) {
+            resolve();
+          } else {
+            setTimeout(check, 16);
+          }
+        };
+        setTimeout(check, 20);
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  /** Set camera to preset angle smoothly */
+  setCameraPreset(preset: 'iso' | 'front' | 'back' | 'right' | 'left' | 'top' | 'bottom'): void {
+    const targets: { [key: string]: THREE.Vector3 } = {
+      iso: new THREE.Vector3(5.5, 4.5, 6.5),
+      front: new THREE.Vector3(0, 0, 9),
+      back: new THREE.Vector3(0, 0, -9),
+      right: new THREE.Vector3(9, 0, 0),
+      left: new THREE.Vector3(-9, 0, 0),
+      top: new THREE.Vector3(0, 9, 0),
+      bottom: new THREE.Vector3(0, -9, 0)
+    };
+    const targetPos = targets[preset] || targets['iso'];
+    const startPos = this.camera.position.clone();
+    const duration = 350;
+    const startTime = performance.now();
+
+    const animateCam = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1);
+      const ease = 0.5 - Math.cos(progress * Math.PI) / 2;
+      this.camera.position.lerpVectors(startPos, targetPos, ease);
+      this.camera.lookAt(0, 0, 0);
+      this.controls.target.set(0, 0, 0);
+      this.controls.update();
+      if (progress < 1) {
+        requestAnimationFrame(animateCam);
+      }
+    };
+    requestAnimationFrame(animateCam);
+  }
+
+  /** Toggle continuous auto-rotation */
+  toggleAutoRotate(): boolean {
+    this.controls.autoRotate = !this.controls.autoRotate;
+    this.controls.autoRotateSpeed = 1.2;
+    return this.controls.autoRotate;
+  }
+
+  /** Clean in-memory reset of the 3D cube */
+  resetCubeState(): void {
+    // 1. Immediately abort all ongoing operations and cancel any running animation frame
+    this.abortCurrentOperations();
+
+    // 2. Detach and clean up all cubie meshes from all pivots and scene
+    const pivotKeys = ['front', 'back', 'right', 'left', 'top', 'bottom'] as const;
+    for (const key of pivotKeys) {
+      const pivot = this.pivots[key];
+      while (pivot.children.length > 0) {
+        pivot.remove(pivot.children[0]);
+      }
+      pivot.rotation.set(0, 0, 0);
+      pivot.quaternion.identity();
+    }
+
+    for (const mesh of this.allCubies) {
+      if (mesh.parent) {
+        mesh.parent.remove(mesh);
+      }
+    }
+    this.allCubies = [];
+    this.Cube = new CubeService();
+    this.isAnimating = false;
+    this.isOperating = false;
+    this.createRubiksCube();
+    this.setCameraPreset('iso');
   }
 }

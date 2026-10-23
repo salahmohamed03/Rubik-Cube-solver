@@ -1,29 +1,407 @@
-<div class="cube-container">
-  <div #container class="cube-viewport" ></div>
-  <div class="controls-container">
-    <div class="button-row">
-      <button (click)="F()" class="control-button">front</button>
-      <button (click)="B()" class="control-button">back</button>
-      <button (click)="L()" class="control-button">left</button>
-      <button (click)="R()" class="control-button">right</button>
-      <button (click)="U()" class="control-button">top</button>
-      <button (click)="D()" class="control-button">bottom</button>
+<div class="cube-container" [class.fullscreen]="isFullscreen">
+  <!-- 3D Viewport Canvas Container -->
+  <div #container class="cube-viewport" id="cube-viewport"></div>
+
+  <!-- ================= TOP HUD & NAVIGATION BAR ================= -->
+  <header class="top-hud">
+    <!-- Brand & State -->
+    <div class="brand-group">
+      <div class="cube-logo-badge">
+        <i class="fa-solid fa-cube logo-icon"></i>
+        <div class="brand-info">
+          <div class="brand-name">
+            <span>RUBIK</span><span class="brand-accent">STUDIO</span>
+          </div>
+          <span class="brand-tag">3D AI Solver</span>
+        </div>
+      </div>
+
+      <div class="state-pill" [attr.data-state]="cubeState">
+        <span class="state-dot"></span>
+        <span class="state-label">{{ cubeState }}</span>
+      </div>
     </div>
-    <div class="button-row">
-      <button (click)="Fi()" class="control-button">front i</button>
-      <button (click)="Bi()" class="control-button">back i</button>
-      <button (click)="Li()" class="control-button">left i</button>
-      <button (click)="Ri()" class="control-button">right i</button>
-      <button (click)="Ui()" class="control-button">top i</button>
-      <button (click)="Di()" class="control-button">bottom i</button>
+
+    <!-- Center HUD: Timer & Moves Counter -->
+    <div class="hud-center">
+      <!-- Speedcubing Timer -->
+      <div class="timer-box" [class.running]="timerRunning" (click)="toggleTimer()" title="Click or press Space to start/stop timer">
+        <i class="fa-solid fa-stopwatch timer-icon"></i>
+        <span class="timer-digits">{{ timerDisplay }}</span>
+        <button class="timer-reset-btn" (click)="$event.stopPropagation(); resetTimer()" title="Reset Timer">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+      </div>
+
+      <!-- Moves Counter -->
+      <div class="moves-badge" title="Total moves made in this session">
+        <span class="moves-count-label">MOVES</span>
+        <span class="moves-count-value">{{ moveCount }}</span>
+      </div>
     </div>
-    <div class="action-row">
-      <button (click)="performMove()" class="action-button">move</button>
-      <button (click)="solve()" class="action-button">solve</button>
-      <button (click)="scrumble()" class="action-button">scrumble</button>
+
+    <!-- Right Controls: Camera, Audio, Fullscreen -->
+    <div class="hud-tools">
+      <!-- Camera Presets Menu -->
+      <div class="cam-presets-bar">
+        <button
+          class="cam-btn"
+          [class.active]="activeCameraPreset === 'iso'"
+          (click)="setCameraView('iso')"
+          title="Isometric 3D View">3D</button>
+        <button
+          class="cam-btn"
+          [class.active]="activeCameraPreset === 'front'"
+          (click)="setCameraView('front')"
+          title="Front Face View">F</button>
+        <button
+          class="cam-btn"
+          [class.active]="activeCameraPreset === 'top'"
+          (click)="setCameraView('top')"
+          title="Top Face View">U</button>
+        <button
+          class="cam-btn"
+          [class.active]="activeCameraPreset === 'right'"
+          (click)="setCameraView('right')"
+          title="Right Face View">R</button>
+      </div>
+
+      <!-- Auto Rotate Toggle -->
+      <button
+        class="tool-btn"
+        [class.active]="autoRotateActive"
+        (click)="toggleAutoRotate()"
+        title="Toggle Continuous 3D Auto-Rotation"
+        id="btn-autorotate">
+        <i class="fa-solid fa-arrows-rotate tool-icon"></i>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button
+        class="tool-btn"
+        [class.active]="soundService.soundEnabled"
+        (click)="toggleSound()"
+        title="Toggle Sound Effects"
+        id="btn-sound">
+        <i class="fa-solid fa-volume-high tool-icon" *ngIf="soundService.soundEnabled"></i>
+        <i class="fa-solid fa-volume-xmark tool-icon" *ngIf="!soundService.soundEnabled"></i>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button
+        class="tool-btn"
+        (click)="toggleFullscreen()"
+        title="Toggle Fullscreen"
+        id="btn-fullscreen">
+        <i class="fa-solid fa-compress tool-icon" *ngIf="isFullscreen"></i>
+        <i class="fa-solid fa-expand tool-icon" *ngIf="!isFullscreen"></i>
+      </button>
     </div>
-    <div class="input-row">
-      <input type="text" maxlength="120" [(ngModel)]="move" class="move-input" placeholder="RUru ...">
+  </header>
+
+  <!-- ================= INTERACTION HINT & HOVER PILL ================= -->
+  <div class="floating-tips-container">
+    <!-- Hovered Face Indicator -->
+    <div class="face-pill" *ngIf="hoveredFace">
+      <span class="face-dot" [attr.data-face]="hoveredFace"></span>
+      <span class="face-title">{{ hoveredFace | uppercase }} FACE</span>
+      <span class="face-hint">Click CW · Shift+Click CCW</span>
+    </div>
+
+    <!-- Onboarding Interaction Hint -->
+    <div class="interaction-hint" [class.hidden]="hintHidden" *ngIf="!hoveredFace">
+      <span class="hint-pulse"></span>
+      Drag to rotate view · Click cube faces or use control dock below
     </div>
   </div>
+
+  <!-- ================= MASTER CONTROL DOCK ================= -->
+  <aside class="control-dock" [class.collapsed]="panelCollapsed">
+    <!-- Dock Header with Tabs -->
+    <div class="dock-header">
+      <div class="dock-tabs">
+        <button
+          class="dock-tab"
+          [class.active]="activeTab === 'controls'"
+          (click)="activeTab = 'controls'">
+          <i class="fa-solid fa-gamepad tab-icon"></i> Direct Turns
+        </button>
+        <button
+          class="dock-tab"
+          [class.active]="activeTab === 'solver'"
+          (click)="activeTab = 'solver'">
+          <i class="fa-solid fa-bolt tab-icon"></i> Solver Player
+          <span class="tab-badge" *ngIf="solutionSteps.length > 0">{{ solutionSteps.length }}</span>
+        </button>
+        <button
+          class="dock-tab"
+          [class.active]="activeTab === 'patterns'"
+          (click)="activeTab = 'patterns'">
+          <i class="fa-solid fa-table-cells tab-icon"></i> Patterns
+        </button>
+        <button
+          class="dock-tab"
+          [class.active]="activeTab === 'algorithms'"
+          (click)="activeTab = 'algorithms'">
+          <i class="fa-solid fa-keyboard tab-icon"></i> Formulas
+        </button>
+      </div>
+
+      <!-- Collapse Toggle Button -->
+      <button class="collapse-btn" (click)="togglePanel()" title="Collapse / Expand Dock">
+        <i class="fa-solid fa-chevron-down" *ngIf="!panelCollapsed"></i>
+        <i class="fa-solid fa-chevron-up" *ngIf="panelCollapsed"></i>
+      </button>
+    </div>
+
+    <!-- Dock Content Body -->
+    <div class="dock-body" *ngIf="!panelCollapsed">
+      <!-- ---------------- TAB 1: DIRECT FACE CONTROLS ---------------- -->
+      <div class="tab-content" *ngIf="activeTab === 'controls'">
+        <div class="face-grid">
+          <div
+            class="face-control-card"
+            *ngFor="let f of faceControls"
+            [style.background]="f.bg"
+            [style.borderColor]="f.border">
+            <div class="card-face-header">
+              <span class="face-badge-dot" [style.background]="f.color"></span>
+              <span class="card-face-name">{{ f.name }} ({{ f.key }})</span>
+            </div>
+            <div class="card-buttons-row">
+              <button
+                class="btn-turn btn-cw"
+                (click)="rotateFace(f.face, false)"
+                title="Clockwise Turn">
+                <span class="turn-label">{{ f.key }}</span>
+                <i class="fa-solid fa-rotate-right turn-dir-icon"></i>
+              </button>
+              <button
+                class="btn-turn btn-ccw"
+                (click)="rotateFace(f.face, true)"
+                title="Counter-Clockwise Turn">
+                <span class="turn-label">{{ f.key }}'</span>
+                <i class="fa-solid fa-rotate-left turn-dir-icon"></i>
+              </button>
+              <button
+                class="btn-turn btn-double"
+                (click)="rotateFaceDouble(f.face)"
+                title="Double Turn (180°)">
+                <span class="turn-label">{{ f.key }}2</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------- TAB 2: STEP-BY-STEP SOLVER PLAYER ---------------- -->
+      <div class="tab-content" *ngIf="activeTab === 'solver'">
+        <!-- When no solution is loaded yet -->
+        <div class="solver-empty-state" *ngIf="solutionSteps.length === 0">
+          <div class="empty-icon-wrap">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <h3>AI Solution Generator</h3>
+          <p>Compute an optimal CFOP solution with full step-by-step playback controls and phase breakdowns.</p>
+          <button class="btn-compute-solution" (click)="generateSolution()" id="btn-calc-solution">
+            <i class="fa-solid fa-bolt btn-icon"></i> Generate Step-by-Step Solution
+          </button>
+        </div>
+
+        <!-- When solution is loaded -->
+        <div class="solver-player-view" *ngIf="solutionSteps.length > 0">
+          <!-- Phase Stepper Chips -->
+          <div class="phase-stepper-ribbon">
+            <button
+              class="phase-chip"
+              *ngFor="let p of solutionPhases"
+              [class.active]="currentStepIndex >= p.startIdx && currentStepIndex < p.startIdx + p.count"
+              (click)="jumpToPhase(p)">
+              <span class="phase-name">{{ p.phase }}</span>
+              <span class="phase-count">{{ p.count }}</span>
+            </button>
+          </div>
+
+          <!-- Active Move Spotlight Display -->
+          <div class="active-move-spotlight" *ngIf="currentStepIndex < solutionSteps.length">
+            <div class="spotlight-badge">
+              <span class="active-move-notation">{{ solutionSteps[currentStepIndex].label }}</span>
+            </div>
+            <div class="spotlight-meta">
+              <span class="active-step-num">Step {{ currentStepIndex + 1 }} of {{ solutionSteps.length }}</span>
+              <span class="active-step-desc">{{ solutionSteps[currentStepIndex].desc }}</span>
+              <span class="active-step-phase">{{ solutionSteps[currentStepIndex].phase }}</span>
+            </div>
+          </div>
+
+          <!-- Solved Banner when all steps executed -->
+          <div class="active-move-spotlight solved-state" *ngIf="currentStepIndex >= solutionSteps.length">
+            <div class="spotlight-badge solved-badge">
+              <i class="fa-solid fa-circle-check solved-icon"></i>
+            </div>
+            <div class="spotlight-meta">
+              <span class="active-step-num text-success">Cube Fully Solved!</span>
+              <span class="active-step-desc">All {{ solutionSteps.length }} moves successfully executed</span>
+            </div>
+          </div>
+
+          <!-- Progress Bar & Scrubber -->
+          <div class="progress-container">
+            <div class="progress-bar-bg">
+              <div
+                class="progress-bar-fill"
+                [style.width.%]="(currentStepIndex / solutionSteps.length) * 100"></div>
+            </div>
+            <div class="progress-labels">
+              <span>Start</span>
+              <span>{{ currentStepIndex }} / {{ solutionSteps.length }} moves</span>
+              <span>Solved</span>
+            </div>
+          </div>
+
+          <!-- Step Chips Horizontal Scroller -->
+          <div class="step-chips-scroller" #stepScroller>
+            <button
+              class="step-chip"
+              *ngFor="let step of solutionSteps; let i = index"
+              [class.completed]="i < currentStepIndex"
+              [class.active]="i === currentStepIndex"
+              (click)="jumpToStep(i)"
+              [title]="step.desc">
+              {{ step.label }}
+            </button>
+          </div>
+
+          <!-- Player Controls Row -->
+          <div class="player-controls-row">
+            <!-- Step Backward -->
+            <button
+              class="player-btn btn-step"
+              (click)="stepBackward()"
+              [disabled]="currentStepIndex === 0"
+              title="Step Backward (Undo Move) [←]">
+              <i class="fa-solid fa-backward-step"></i> Step
+            </button>
+
+            <!-- Play / Pause -->
+            <button
+              class="player-btn btn-play"
+              (click)="togglePlay()"
+              title="Play / Pause Auto Solution [Space]">
+              <i class="fa-solid fa-play" *ngIf="!isPlaying"></i>
+              <i class="fa-solid fa-pause" *ngIf="isPlaying"></i>
+              <span>{{ isPlaying ? 'Pause' : 'Play' }}</span>
+            </button>
+
+            <!-- Step Forward -->
+            <button
+              class="player-btn btn-step"
+              (click)="stepForward()"
+              [disabled]="currentStepIndex >= solutionSteps.length"
+              title="Step Forward (Execute Move) [→]">
+              Step <i class="fa-solid fa-forward-step"></i>
+            </button>
+
+            <!-- Playback Speed Selector -->
+            <div class="speed-selector">
+              <button
+                class="speed-btn"
+                [class.active]="playbackSpeed === 0.5"
+                (click)="setSpeed(0.5)">0.5x</button>
+              <button
+                class="speed-btn"
+                [class.active]="playbackSpeed === 1"
+                (click)="setSpeed(1)">1x</button>
+              <button
+                class="speed-btn"
+                [class.active]="playbackSpeed === 2"
+                (click)="setSpeed(2)">2x</button>
+              <button
+                class="speed-btn"
+                [class.active]="playbackSpeed === 4"
+                (click)="setSpeed(4)">4x</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------- TAB 3: PRESET PATTERNS ---------------- -->
+      <div class="tab-content" *ngIf="activeTab === 'patterns'">
+        <div class="patterns-grid">
+          <div
+            class="pattern-card"
+            *ngFor="let p of presetPatterns"
+            (click)="applyPattern(p)">
+            <div class="pattern-icon-wrap">
+              <i [class]="p.icon"></i>
+            </div>
+            <div class="pattern-details">
+              <h4>{{ p.name }}</h4>
+              <p>{{ p.desc }}</p>
+              <code>{{ p.moves }}</code>
+            </div>
+            <button class="pattern-apply-btn" title="Apply this pattern">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------------- TAB 4: ALGORITHMS & FORMULAS ---------------- -->
+      <div class="tab-content" *ngIf="activeTab === 'algorithms'">
+        <!-- Custom Formula Input -->
+        <div class="manual-formula-box">
+          <label>Execute Custom Notation (e.g. F R U' B2 L' D)</label>
+          <div class="formula-input-wrap">
+            <input
+              type="text"
+              [(ngModel)]="manualMoveInput"
+              placeholder="Enter moves: R U R' U'..."
+              (keydown.enter)="executeManualInput()"
+              class="formula-input"
+              id="formula-input">
+            <button class="btn-execute-formula" (click)="executeManualInput()">Execute</button>
+          </div>
+        </div>
+
+        <!-- Quick Algorithm Triggers -->
+        <div class="algos-grid">
+          <div
+            class="algo-card"
+            *ngFor="let a of quickAlgos"
+            (click)="applyAlgorithm(a)">
+            <div class="algo-header">
+              <span class="algo-name">{{ a.name }}</span>
+              <span class="algo-desc">{{ a.desc }}</span>
+            </div>
+            <code class="algo-code">{{ a.formula }}</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Master Action Bar (Always Available) -->
+    <div class="dock-actions-bar">
+      <!-- Scramble Button -->
+      <button class="master-btn btn-scramble" (click)="scramble(20)" id="btn-master-scramble">
+        <i class="fa-solid fa-shuffle btn-icon"></i> Scramble
+      </button>
+
+      <!-- Auto Solve Button -->
+      <button class="master-btn btn-solve" (click)="generateSolution()" id="btn-master-solve">
+        <i class="fa-solid fa-wand-magic-sparkles btn-icon"></i> Auto Solve
+      </button>
+
+      <!-- Clean Reset Button -->
+      <button class="master-btn btn-reset" (click)="resetCube()" title="Clean In-Memory Reset" id="btn-master-reset">
+        <i class="fa-solid fa-rotate-left btn-icon"></i> Reset
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= KEYBOARD SHORTCUTS FOOTER ================= -->
+  <footer class="shortcuts-legend">
+    <div class="legend-chip"><kbd>F</kbd><kbd>R</kbd><kbd>U</kbd><kbd>L</kbd><kbd>B</kbd><kbd>D</kbd> Turns</div>
+    <div class="legend-chip"><kbd>Shift</kbd> + Key = Counter-Clockwise</div>
+    <div class="legend-chip"><kbd>Space</kbd> Timer / Play</div>
+    <div class="legend-chip"><kbd>→</kbd><kbd>←</kbd> Step Forward / Back</div>
+  </footer>
 </div>
